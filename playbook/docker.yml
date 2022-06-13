@@ -1,0 +1,90 @@
+---
+- name: install docker
+  hosts: dev
+  become: True
+  gather_facts: False
+  vars_files: secret.yml
+  tasks:
+    - name: 
+      ansible.builtin.setup:
+        gather_subset: min
+
+    - name: установка docker
+      block:
+        - name: добалвение репозитория universe
+          ansible.builtin.apt_repository:
+            repo: deb http://us.archive.ubuntu.com/ubuntu/ {{ ansible_distribution_release  }} universe
+            state: present
+
+        - name: установка пакетов
+          ansible.builtin.apt:
+            name:
+              - ca-certificates
+              - curl
+              - gnupg
+              - lsb-release
+
+        - name: добавление репозитория Docker
+          ansible.builtin.apt_repository:
+            repo: > 
+                deb [arch={{ lookup('pipe', 'dpkg --print-architecture') }} signed-by=/etc/apt/keyrings/docker.gpg] 
+                https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+            update_cache: yes
+            filename: docker
+
+        - name: добавление официального GPG ключа Docker
+          ansible.builtin.apt_key:
+            url: https://download.docker.com/linux/ubuntu/gpg
+            keyring: /etc/apt/keyrings/docker.gpg
+            state: present
+
+        - name: установка Docker Engine
+          ansible.builtin.apt:
+            name:
+              - docker-ce 
+              - docker-ce-cli 
+              - containerd.io 
+              - docker-compose-plugin
+            update_cache: yes
+          
+        - name: проверка установки и перезапуск docker
+          ansible.builtin.service:
+            name: docker
+            state: restarted
+            enabled: yes
+    
+    - name: установка docker-compose
+      block:    
+        - name: забираем с github номер последней версии для docker-compose
+          ansible.builtin.uri:
+            url: https://api.github.com/repos/docker/compose/releases/latest
+            method: GET
+          register: result
+        - ansible.builtin.set_fact:
+            latest_version_docker_compose: "{{ result.json.tag_name|trim }}"
+
+        - name: установка docker-compose
+          ansible.builtin.get_url:
+            url: > 
+              https://github.com/docker/compose/releases/download/{{ latest_version_docker_compose }}/docker-compose-{{ ansible_system }}-{{ ansible_architecture }}
+            dest: /usr/local/bin/docker-compose
+            mode: 0766
+    
+    - name: завершение установки
+      block:
+        - name: добавления пользователя в группу Docker
+          ansible.builtin.user:
+            name: "{{ ansible_user }}"
+            groups: docker
+            append: yes
+
+        - name: перезагрузка хоста
+          ansible.builtin.reboot:
+
+      
+
+    
+
+
+
+

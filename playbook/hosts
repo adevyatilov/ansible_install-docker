@@ -1,0 +1,6 @@
+[ubuntu_servers]
+ubuntu_srv4 ansible_host=192.168.1.104
+
+[dev]
+ubuntu_srv4
+
